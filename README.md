@@ -1,36 +1,64 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Timesheet
 
-## Getting Started
+A single-user time tracker for hourly freelance work. Track time with a count-up timer or a countdown, organize it by client, project, and ticket, and export a CSV for invoicing.
 
-First, run the development server:
+## Stack
+
+- Next.js (App Router) and Tailwind
+- Neon Postgres, accessed with Drizzle and `@neondatabase/serverless`
+- One shared password. There is no user table.
+
+Route protection lives in `proxy.ts`. Next.js 16 replaced the old `middleware.ts` file with this convention.
+
+## Local setup
+
+1. Create a Neon project and copy its pooled connection string.
+2. Copy the environment file and fill it in:
+
+```bash
+cp .env.example .env.local
+```
+
+`APP_PASSWORD` is the password you type on the sign-in page. Generate `AUTH_SECRET` with:
+
+```bash
+openssl rand -base64 32
+```
+
+3. Apply the database migration. This reads `.env.local` and talks to Neon over HTTP, same as the app:
+
+```bash
+npm run db:migrate
+```
+
+4. Start the app:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Open [http://localhost:3000](http://localhost:3000). The first sign-in stores your browser's timezone. Weeks start on Monday. You can change the timezone later on the Clients page.
 
 ## Deploy on Vercel
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+1. Push this repository to GitHub.
+2. Import the project in Vercel.
+3. Add `DATABASE_URL`, `APP_PASSWORD`, and `AUTH_SECRET` in the project environment variables.
+4. Deploy. The build does not migrate the database. Run `npm run db:migrate` locally against the Neon database before the first deploy, or from any machine that has `DATABASE_URL` set.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## How time is stored
+
+- Timestamps are stored in UTC. Day, week, and month totals are calculated in the saved timezone.
+- An entry belongs to the day it started.
+- Duration is exact. Reports and the CSV show decimal hours to two places. The billable amount is those hours times the client's current hourly rate.
+- Only one timer can run at a time. Stop it before starting another.
+- A countdown that reaches zero is saved for the full allotted time. Stopping early saves the elapsed time.
+- If a countdown finishes while this tab is open, the app plays a sound, shows a banner, and sends a browser notification when permission has been granted. If the tab was closed, the same banner and sound happen the next time you open the app.
+- The CSV matches the current report filters: period, date, and client.
+
+## Scripts
+
+- `npm run dev` — local development
+- `npm run build` — production build
+- `npm run db:generate` — create a new migration after a schema change
+- `npm run db:migrate` — apply migrations to `DATABASE_URL`
