@@ -7,14 +7,14 @@ import {
   listClosedEntries,
   loadTimerState,
 } from "@/lib/data";
-import { formatCurrencyTotals, resolveReportSearch, summarize } from "@/lib/report";
+import { activeProjectId, formatCurrencyTotals, resolveReportSearch, summarize } from "@/lib/report";
 import { formatDateISO, formatPeriodLabel } from "@/lib/time";
 import { toClientOptions, toEntryListItem } from "@/lib/view";
 
 export default async function ReportsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ period?: string; date?: string; client?: string }>;
+  searchParams: Promise<{ period?: string; date?: string; client?: string; project?: string }>;
 }) {
   const settings = await getSettings();
   const search = await searchParams;
@@ -22,16 +22,22 @@ export default async function ReportsPage({
     period: search.period,
     date: search.date,
     client: search.client,
+    project: search.project,
     timeZone: settings.timezone,
     weekStartsOn: settings.weekStartsOn,
   });
+  const clientsPromise = listClientsWithProjects();
   const timer = await loadTimerState();
-  const [entries, clients] = await Promise.all([
-    listClosedEntries(report.range.start, report.range.end, report.clientId),
-    listClientsWithProjects(),
-  ]);
-  const summary = summarize(entries);
+  const clients = await clientsPromise;
   const clientOptions = toClientOptions(clients);
+  const projectId = activeProjectId(clientOptions, report.clientId, report.projectId);
+  const entries = await listClosedEntries(
+    report.range.start,
+    report.range.end,
+    report.clientId,
+    projectId,
+  );
+  const summary = summarize(entries);
   const label = formatPeriodLabel(report.period, report.range.startParts, report.range.endParts);
   const openInRange =
     timer.open != null &&
@@ -48,10 +54,12 @@ export default async function ReportsPage({
         </p>
       </div>
       <ReportControls
+        key={`${report.date}:${report.clientId ?? ""}:${projectId ?? ""}`}
         period={report.period}
         anchor={report.anchor}
         date={report.date}
         clientId={report.clientId}
+        projectId={projectId}
         clients={clientOptions}
       />
       {openInRange ? (

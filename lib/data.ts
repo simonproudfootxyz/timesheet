@@ -127,13 +127,19 @@ async function selectEntries(where: SQL) {
   }));
 }
 
-export async function listClosedEntries(start: Date, end: Date, clientId?: string) {
+export async function listClosedEntries(
+  start: Date,
+  end: Date,
+  clientId?: string,
+  projectId?: string,
+) {
   const filters = [
     gte(timeEntries.startedAt, start),
     lt(timeEntries.startedAt, end),
     isNotNull(timeEntries.endedAt),
   ];
   if (clientId) filters.push(eq(clients.id, clientId));
+  if (projectId) filters.push(eq(projects.id, projectId));
   const where = and(...filters);
   if (!where) return [];
   const rows = await selectEntries(where);

@@ -121,6 +121,7 @@ export function resolveReportSearch(input: {
   period?: string;
   date?: string;
   client?: string;
+  project?: string;
   timeZone: string;
   weekStartsOn: number;
   now?: Date;
@@ -134,13 +135,29 @@ export function resolveReportSearch(input: {
   };
   const range = periodRange(anchor, period, input.weekStartsOn, input.timeZone);
   const clientId = input.client && isUuid(input.client) ? input.client : undefined;
+  const projectId = input.project && isUuid(input.project) ? input.project : undefined;
   return {
     period,
     anchor,
     range,
     clientId,
+    projectId,
     date: formatDateISO(anchor),
   };
+}
+
+export function activeProjectId(
+  clients: Array<{ id: string; projects: Array<{ id: string }> }>,
+  clientId: string | undefined,
+  projectId: string | undefined,
+) {
+  if (!projectId) return undefined;
+  const owner = clients.find((client) =>
+    client.projects.some((project) => project.id === projectId),
+  );
+  if (!owner) return undefined;
+  if (clientId && owner.id !== clientId) return undefined;
+  return projectId;
 }
 
 export function exportFilename(period: Period, start: string, end: string) {
